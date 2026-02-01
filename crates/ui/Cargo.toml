@@ -1,0 +1,10 @@
+[package]
+name = "ui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+domain = { path = "../domain" }
+analytics = { path = "../analytics" }
+ratatui = { workspace = true }
+crossterm = { workspace = true }

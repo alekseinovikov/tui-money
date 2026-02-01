@@ -1,0 +1,10 @@
+[package]
+name = "tui-money"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+domain = { path = "../domain" }
+storage = { path = "../storage" }
+ui = { path = "../ui" }
+analytics = { path = "../analytics" }
