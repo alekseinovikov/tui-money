@@ -8,3 +8,4 @@ domain = { path = "../domain" }
 analytics = { path = "../analytics" }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
+ctrlc = { workspace = true }

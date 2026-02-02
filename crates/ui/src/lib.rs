@@ -5,6 +5,8 @@ mod screens;
 mod widgets;
 
 use std::io::{self, stdout};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crossterm::event as ct_event;
@@ -33,9 +35,20 @@ pub fn run() -> io::Result<()> {
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
     let mut app = App::new();
+    let should_quit = Arc::new(AtomicBool::new(false));
+    let should_quit_handle = Arc::clone(&should_quit);
+
+    ctrlc::set_handler(move || {
+        should_quit_handle.store(true, Ordering::SeqCst);
+    })
+    .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
 
     loop {
         terminal.draw(|frame| app.render(frame))?;
+
+        if should_quit.load(Ordering::SeqCst) {
+            break;
+        }
 
         if ct_event::poll(Duration::from_millis(100))? {
             let evt = ct_event::read()?;

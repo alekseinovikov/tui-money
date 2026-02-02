@@ -4,6 +4,8 @@ use chrono::NaiveDate;
 use domain::{Entry, EntryFilter, EntryKind, EntryRepository, NewEntry, RepoError};
 use rusqlite::{params, Connection};
 
+const MIGRATIONS: &[(&str, &str)] = &[("001_init.sql", include_str!("../migrations/001_init.sql"))];
+
 const DATE_FORMAT: &str = "%Y-%m-%d";
 
 pub struct SqliteRepository {
@@ -14,25 +16,57 @@ impl SqliteRepository {
     pub fn new(path: impl AsRef<Path>) -> Result<Self, RepoError> {
         let conn = Connection::open(path.as_ref())
             .map_err(|err| RepoError::Storage(err.to_string()))?;
-        let repo = Self { conn };
-        repo.init_schema()?;
+        let mut repo = Self { conn };
+        repo.apply_migrations()?;
         Ok(repo)
     }
 
-    fn init_schema(&self) -> Result<(), RepoError> {
+    fn apply_migrations(&mut self) -> Result<(), RepoError> {
         self.conn
             .execute(
-                "CREATE TABLE IF NOT EXISTS entries (
-                    id INTEGER PRIMARY KEY,
-                    kind TEXT NOT NULL,
-                    amount_cents INTEGER NOT NULL,
-                    category TEXT NOT NULL,
-                    note TEXT,
-                    occurred_on TEXT NOT NULL
+                "CREATE TABLE IF NOT EXISTS schema_migrations (
+                    version TEXT PRIMARY KEY,
+                    applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )",
                 [],
             )
             .map_err(|err| RepoError::Storage(err.to_string()))?;
+
+        let applied = {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT version FROM schema_migrations")
+                .map_err(|err| RepoError::Storage(err.to_string()))?;
+            stmt.query_map([], |row| row.get::<_, String>(0))
+                .map_err(|err| RepoError::Storage(err.to_string()))?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|err| RepoError::Storage(err.to_string()))?
+        };
+
+        let mut applied_set = std::collections::HashSet::new();
+        for version in applied {
+            applied_set.insert(version);
+        }
+
+        for (version, sql) in MIGRATIONS {
+            if applied_set.contains(*version) {
+                continue;
+            }
+            let tx = self
+                .conn
+                .transaction()
+                .map_err(|err| RepoError::Storage(err.to_string()))?;
+            tx.execute_batch(sql)
+                .map_err(|err| RepoError::Storage(err.to_string()))?;
+            tx.execute(
+                "INSERT INTO schema_migrations (version) VALUES (?1)",
+                [*version],
+            )
+            .map_err(|err| RepoError::Storage(err.to_string()))?;
+            tx.commit()
+                .map_err(|err| RepoError::Storage(err.to_string()))?;
+        }
+
         Ok(())
     }
 

@@ -18,3 +18,4 @@ crossterm = "0.27"
 ratatui = "0.27"
 rusqlite = { version = "0.31", features = ["bundled", "chrono"] }
 thiserror = "1.0"
+ctrlc = "3.4"
