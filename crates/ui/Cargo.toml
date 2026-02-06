@@ -9,3 +9,4 @@ analytics = { path = "../analytics" }
 ratatui = { workspace = true }
 crossterm = { workspace = true }
 ctrlc = { workspace = true }
+rusty-money = { workspace = true }

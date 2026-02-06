@@ -14,8 +14,9 @@ edition = "2024"
 
 [workspace.dependencies]
 chrono = "0.4"
-crossterm = "0.27"
-ratatui = "0.27"
-rusqlite = { version = "0.31", features = ["bundled", "chrono"] }
-thiserror = "1.0"
+crossterm = "0.28"
+ratatui = "0.29"
+rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
+thiserror = "2.0"
 ctrlc = "3.4"
+rusty-money = "0.4"

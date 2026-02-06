@@ -6,3 +6,4 @@ edition.workspace = true
 [dependencies]
 chrono = { workspace = true }
 thiserror = { workspace = true }
+rusty-money = { workspace = true }

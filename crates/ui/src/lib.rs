@@ -5,15 +5,17 @@ mod screens;
 mod widgets;
 
 use std::io::{self, stdout};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crossterm::event as ct_event;
 use crossterm::execute;
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen};
-use ratatui::backend::CrosstermBackend;
+use crossterm::terminal::{
+    EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+};
 use ratatui::Terminal;
+use ratatui::backend::CrosstermBackend;
 
 use crate::app::App;
 use crate::event::handle_event;
@@ -27,21 +29,23 @@ impl Drop for TerminalGuard {
     }
 }
 
-pub fn run() -> io::Result<()> {
+use domain::EntryRepository;
+
+pub fn run(repo: Box<dyn EntryRepository>) -> io::Result<()> {
     enable_raw_mode()?;
     execute!(stdout(), EnterAlternateScreen)?;
     let _guard = TerminalGuard;
 
     let backend = CrosstermBackend::new(stdout());
     let mut terminal = Terminal::new(backend)?;
-    let mut app = App::new();
+    let mut app = App::new(repo);
     let should_quit = Arc::new(AtomicBool::new(false));
     let should_quit_handle = Arc::clone(&should_quit);
 
     ctrlc::set_handler(move || {
         should_quit_handle.store(true, Ordering::SeqCst);
     })
-    .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+    .map_err(|err| io::Error::other(err))?;
 
     loop {
         terminal.draw(|frame| app.render(frame))?;

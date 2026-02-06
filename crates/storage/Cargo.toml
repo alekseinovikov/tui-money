@@ -7,3 +7,4 @@ edition.workspace = true
 domain = { path = "../domain" }
 chrono = { workspace = true }
 rusqlite = { workspace = true }
+rusty-money = { workspace = true }
