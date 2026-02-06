@@ -7,6 +7,7 @@ pub enum Action {
     FocusNext,
     FocusPrev,
     Activate,
+    Cancel,
     InputChar(char),
     Backspace,
     NavUp,
@@ -20,6 +21,7 @@ pub fn handle_event(event: &Event) -> Action {
         Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
             KeyCode::Char('q') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
             KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => Action::Quit,
+            KeyCode::Esc => Action::Cancel,
             KeyCode::Tab => Action::FocusNext,
             KeyCode::BackTab => Action::FocusPrev,
             KeyCode::Up => Action::NavUp,
