@@ -110,7 +110,7 @@ impl Screen for LoginScreen {
         // Form structure
         let form_height = 10; // fixed height for the main form
         let form_area = centered_rect(area, 50, form_height);
-        
+
         let block = Block::default()
             .title(" Login System ")
             .borders(Borders::ALL)
@@ -131,19 +131,44 @@ impl Screen for LoginScreen {
             .split(inner_area);
 
         // Styles
-        let focused_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
+        let focused_style = Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD);
         let default_style = Style::default().fg(Color::Gray);
 
-        let user_style = if self.focus == LoginFocus::User { focused_style } else { default_style };
-        let pass_style = if self.focus == LoginFocus::Password { focused_style } else { default_style };
-        let login_btn_style = if self.focus == LoginFocus::LoginButton { focused_style.bg(Color::Blue).fg(Color::White) } else { default_style };
-        let create_btn_style = if self.focus == LoginFocus::CreateUserButton { focused_style.bg(Color::Blue).fg(Color::White) } else { default_style };
+        let user_style = if self.focus == LoginFocus::User {
+            focused_style
+        } else {
+            default_style
+        };
+        let pass_style = if self.focus == LoginFocus::Password {
+            focused_style
+        } else {
+            default_style
+        };
+        let login_btn_style = if self.focus == LoginFocus::LoginButton {
+            focused_style.bg(Color::Blue).fg(Color::White)
+        } else {
+            default_style
+        };
+        let create_btn_style = if self.focus == LoginFocus::CreateUserButton {
+            focused_style.bg(Color::Blue).fg(Color::White)
+        } else {
+            default_style
+        };
 
         // 1. User Field
-        let user_arrow = if self.user_dropdown_open { "▲" } else { "▼" };
+        let user_arrow = if self.user_dropdown_open {
+            "▲"
+        } else {
+            "▼"
+        };
         let user_line = Line::from(vec![
             Span::raw("Username: "),
-            Span::styled(format!("{} {}", self.selected_user_label(), user_arrow), user_style),
+            Span::styled(
+                format!("{} {}", self.selected_user_label(), user_arrow),
+                user_style,
+            ),
         ]);
         frame.render_widget(Paragraph::new(user_line), chunks[0]);
 
@@ -152,7 +177,11 @@ impl Screen for LoginScreen {
         let pass_line = Line::from(vec![
             Span::raw("Password: "),
             Span::styled(pass_stars.to_string(), pass_style),
-            if (frame.count() / 30).is_multiple_of(2) { Span::raw("_") } else { Span::raw(" ") } // blinking cursor simulation
+            if (frame.count() / 30).is_multiple_of(2) {
+                Span::raw("_")
+            } else {
+                Span::raw(" ")
+            }, // blinking cursor simulation
         ]);
         frame.render_widget(Paragraph::new(pass_line), chunks[2]);
 
@@ -162,7 +191,10 @@ impl Screen for LoginScreen {
             Span::raw("   "),
             Span::styled("[ Create User ]", create_btn_style),
         ]);
-        frame.render_widget(Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center), chunks[4]);
+        frame.render_widget(
+            Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
+            chunks[4],
+        );
 
         // Dropdown Overlay
         if self.user_dropdown_open {
@@ -173,10 +205,12 @@ impl Screen for LoginScreen {
                 height: dropdown_height + 2,
             };
             frame.render_widget(Clear, dropdown_area);
-            let drop_block = Block::default().borders(Borders::ALL).style(Style::default().bg(Color::DarkGray));
+            let drop_block = Block::default()
+                .borders(Borders::ALL)
+                .style(Style::default().bg(Color::DarkGray));
             let drop_inner = drop_block.inner(dropdown_area);
             frame.render_widget(drop_block, dropdown_area);
-            
+
             let items = self.dropdown_lines();
             frame.render_widget(Paragraph::new(items), drop_inner);
         }
@@ -228,8 +262,6 @@ impl Screen for LoginScreen {
         }
     }
 }
-
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoginFocus {
