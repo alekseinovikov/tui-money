@@ -236,15 +236,12 @@ impl UserRepository for SqliteRepository {
         if let Some((id, username, password_hash)) = user_row {
             let parsed_hash = PasswordHash::new(&password_hash)
                 .map_err(|e| DomainError::Storage(format!("Invalid hash: {}", e)))?;
-            
+
             if Argon2::default()
                 .verify_password(password.as_bytes(), &parsed_hash)
                 .is_ok()
             {
-                return Ok(Some(User {
-                    id,
-                    username,
-                }));
+                return Ok(Some(User { id, username }));
             }
         }
 
@@ -359,10 +356,11 @@ mod tests {
 
         assert_eq!(user.username, "alice");
 
-        let verified = repo
-            .verify_user("alice", "password123")
-            .expect("verify ok");
-        assert_eq!(verified.as_ref().map(|u| u.username.as_str()), Some("alice"));
+        let verified = repo.verify_user("alice", "password123").expect("verify ok");
+        assert_eq!(
+            verified.as_ref().map(|u| u.username.as_str()),
+            Some("alice")
+        );
 
         let wrong_pass = repo
             .verify_user("alice", "wrong")
@@ -373,7 +371,7 @@ mod tests {
             .verify_user("bob", "whatever")
             .expect("verify ok (unknown)");
         assert!(unknown.is_none());
-        
+
         // List users
         let users = repo.list_users().expect("list users");
         assert!(users.contains(&"alice".to_string()));

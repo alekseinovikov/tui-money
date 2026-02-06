@@ -13,6 +13,7 @@ use domain::EntryRepository;
 pub enum ScreenId {
     Dashboard,
     Login,
+    #[allow(dead_code)]
     CreateUser,
 }
 

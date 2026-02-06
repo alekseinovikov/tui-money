@@ -63,9 +63,9 @@ impl LoginScreen {
                     self.user_dropdown_open = false;
                 } else {
                     // Load users if needed
-                     if let Ok(users) = repo.list_users() {
-                         self.user_options = users;
-                     }
+                    if let Ok(users) = repo.list_users() {
+                        self.user_options = users;
+                    }
                     self.user_dropdown_open = true;
                 }
                 ScreenResult::None
@@ -77,9 +77,9 @@ impl LoginScreen {
                 }
                 match repo.create_user(&self.username_input, &self.password_input) {
                     Ok(_) => {
-                         self.error_message = Some("User created! Log in now.".to_string());
-                         // Clear password to force re-entry or just login? Safe to generic message.
-                         self.password_input.clear();
+                        self.error_message = Some("User created! Log in now.".to_string());
+                        // Clear password to force re-entry or just login? Safe to generic message.
+                        self.password_input.clear();
                     }
                     Err(e) => {
                         self.error_message = Some(format!("Error: {}", e));
@@ -87,35 +87,29 @@ impl LoginScreen {
                 }
                 ScreenResult::None
             }
-            LoginFocus::LoginButton => {
-                 self.perform_login(repo)
-            }
-            LoginFocus::Password => {
-                self.perform_login(repo)
-            }
+            LoginFocus::LoginButton => self.perform_login(repo),
+            LoginFocus::Password => self.perform_login(repo),
         }
     }
 
     fn perform_login(&mut self, repo: &dyn EntryRepository) -> ScreenResult {
-         // Using "GlobalEntryRepo" aliases just dyn EntryRepository for brevity in thought, 
-         // but here we use the trait directly.
-         if self.username_input.trim().is_empty() {
-             self.error_message = Some("Username required".to_string());
-             return ScreenResult::None;
-         }
-         match repo.verify_user(&self.username_input, &self.password_input) {
-             Ok(Some(_user)) => {
-                 ScreenResult::Go(ScreenId::Dashboard)
-             }
-             Ok(None) => {
-                 self.error_message = Some("Invalid credentials".to_string());
-                 ScreenResult::None
-             }
-             Err(e) => {
-                 self.error_message = Some(format!("Error: {}", e));
-                 ScreenResult::None
-             }
-         }
+        // Using "GlobalEntryRepo" aliases just dyn EntryRepository for brevity in thought,
+        // but here we use the trait directly.
+        if self.username_input.trim().is_empty() {
+            self.error_message = Some("Username required".to_string());
+            return ScreenResult::None;
+        }
+        match repo.verify_user(&self.username_input, &self.password_input) {
+            Ok(Some(_user)) => ScreenResult::Go(ScreenId::Dashboard),
+            Ok(None) => {
+                self.error_message = Some("Invalid credentials".to_string());
+                ScreenResult::None
+            }
+            Err(e) => {
+                self.error_message = Some(format!("Error: {}", e));
+                ScreenResult::None
+            }
+        }
     }
 
     fn dropdown_lines(&self) -> Vec<Line<'_>> {
@@ -207,13 +201,10 @@ impl Screen for LoginScreen {
         } else {
             &self.username_input
         };
-        
+
         let user_line = Line::from(vec![
             Span::raw("Username: "),
-            Span::styled(
-                format!("{} {}", user_display, user_arrow),
-                user_style,
-            ),
+            Span::styled(format!("{} {}", user_display, user_arrow), user_style),
         ]);
         frame.render_widget(Paragraph::new(user_line), chunks[0]);
 
@@ -226,25 +217,28 @@ impl Screen for LoginScreen {
                 Span::raw("_")
             } else {
                 Span::raw(" ")
-            }, 
+            },
         ]);
         frame.render_widget(Paragraph::new(pass_line), chunks[2]);
 
         // 3. Buttons
         let btns = Line::from(vec![
-             Span::styled("[ Login ]", login_btn_style),
-             Span::raw("   "),
-             Span::styled("[ Create User ]", create_btn_style),
+            Span::styled("[ Login ]", login_btn_style),
+            Span::raw("   "),
+            Span::styled("[ Create User ]", create_btn_style),
         ]);
         frame.render_widget(
             Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
             chunks[4],
         );
-        
+
         // 4. Error Message
         if let Some(err) = &self.error_message {
             let err_line = Line::from(Span::styled(err, Style::default().fg(Color::Red)));
-            frame.render_widget(Paragraph::new(err_line).alignment(ratatui::layout::Alignment::Center), chunks[6]);
+            frame.render_widget(
+                Paragraph::new(err_line).alignment(ratatui::layout::Alignment::Center),
+                chunks[6],
+            );
         }
 
         // Dropdown Overlay
@@ -307,11 +301,11 @@ impl Screen for LoginScreen {
                 } else {
                     self.activate(repo)
                 }
-            },
+            }
             Action::InputChar(ch) => {
                 self.error_message = None;
                 if self.focus == LoginFocus::User {
-                     self.username_input.push(ch);
+                    self.username_input.push(ch);
                 } else if self.focus == LoginFocus::Password {
                     self.password_input.push(ch);
                 }
@@ -320,7 +314,7 @@ impl Screen for LoginScreen {
             Action::Backspace => {
                 self.error_message = None;
                 if self.focus == LoginFocus::User {
-                     self.username_input.pop();
+                    self.username_input.pop();
                 } else if self.focus == LoginFocus::Password {
                     self.password_input.pop();
                 }
