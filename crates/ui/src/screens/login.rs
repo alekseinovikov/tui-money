@@ -151,8 +151,8 @@ impl Screen for LoginScreen {
         let pass_stars = "*".repeat(self.password_input.len());
         let pass_line = Line::from(vec![
             Span::raw("Password: "),
-            Span::styled(format!("{}", pass_stars), pass_style),
-            if self.focus == LoginFocus::Password && (frame.count() / 30) % 2 == 0 { Span::raw("_") } else { Span::raw(" ") } // blinking cursor simulation
+            Span::styled(pass_stars.to_string(), pass_style),
+            if (frame.count() / 30).is_multiple_of(2) { Span::raw("_") } else { Span::raw(" ") } // blinking cursor simulation
         ]);
         frame.render_widget(Paragraph::new(pass_line), chunks[2]);
 
@@ -200,18 +200,14 @@ impl Screen for LoginScreen {
                 ScreenResult::None
             }
             Action::NavUp => {
-                if self.user_dropdown_open {
-                    if self.user_selected > 0 {
-                        self.user_selected -= 1;
-                    }
+                if self.user_dropdown_open && self.user_selected > 0 {
+                    self.user_selected -= 1;
                 }
                 ScreenResult::None
             }
             Action::NavDown => {
-                if self.user_dropdown_open {
-                    if self.user_selected + 1 < self.user_options.len() {
-                        self.user_selected += 1;
-                    }
+                if self.user_dropdown_open && self.user_selected + 1 < self.user_options.len() {
+                    self.user_selected += 1;
                 }
                 ScreenResult::None
             }
