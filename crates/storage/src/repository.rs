@@ -1,10 +1,22 @@
 use crate::mapper;
 use chrono::NaiveDate;
-use domain::{Category, DomainError, Entry, EntryFilter, EntryId, EntryRepository, NewEntry};
-use rusqlite::{Connection, params};
+use domain::{
+    Category, DomainError, Entry, EntryFilter, EntryId, EntryRepository, NewEntry, User,
+    UserRepository,
+};
+use rusqlite::{Connection, OptionalExtension, params};
 use std::path::Path;
 
-const MIGRATIONS: &[(&str, &str)] = &[("001_init.sql", include_str!("../migrations/001_init.sql"))];
+use argon2::{
+    Argon2,
+    password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+};
+use rand::rngs::OsRng;
+
+const MIGRATIONS: &[(&str, &str)] = &[
+    ("001_init.sql", include_str!("../migrations/001_init.sql")),
+    ("002_users.sql", include_str!("../migrations/002_users.sql")),
+];
 const DATE_FORMAT: &str = "%Y-%m-%d";
 
 pub struct SqliteRepository {
@@ -181,6 +193,80 @@ impl EntryRepository for SqliteRepository {
     }
 }
 
+impl UserRepository for SqliteRepository {
+    fn create_user(&mut self, username: &str, password: &str) -> Result<User, DomainError> {
+        let salt = SaltString::generate(&mut OsRng);
+        let argon2 = Argon2::default();
+        let password_hash = argon2
+            .hash_password(password.as_bytes(), &salt)
+            .map_err(|e| DomainError::Storage(format!("Hashing failed: {}", e)))?
+            .to_string();
+
+        self.conn
+            .execute(
+                "INSERT INTO users (username, password_hash) VALUES (?1, ?2)",
+                params![username, password_hash],
+            )
+            .map_err(|err| DomainError::Storage(err.to_string()))?;
+
+        let id = self.conn.last_insert_rowid();
+
+        Ok(User {
+            id,
+            username: username.to_string(),
+        })
+    }
+
+    fn verify_user(&self, username: &str, password: &str) -> Result<Option<User>, DomainError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, username, password_hash FROM users WHERE username = ?1")
+            .map_err(|err| DomainError::Storage(err.to_string()))?;
+
+        let user_row = stmt
+            .query_row([username], |row| {
+                let id: i64 = row.get(0)?;
+                let username: String = row.get(1)?;
+                let password_hash: String = row.get(2)?;
+                Ok((id, username, password_hash))
+            })
+            .optional()
+            .map_err(|err| DomainError::Storage(err.to_string()))?;
+
+        if let Some((id, username, password_hash)) = user_row {
+            let parsed_hash = PasswordHash::new(&password_hash)
+                .map_err(|e| DomainError::Storage(format!("Invalid hash: {}", e)))?;
+            
+            if Argon2::default()
+                .verify_password(password.as_bytes(), &parsed_hash)
+                .is_ok()
+            {
+                return Ok(Some(User {
+                    id,
+                    username,
+                }));
+            }
+        }
+
+        Ok(None)
+    }
+
+    fn list_users(&self) -> Result<Vec<String>, DomainError> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT username FROM users ORDER BY username")
+            .map_err(|err| DomainError::Storage(err.to_string()))?;
+
+        let users = stmt
+            .query_map([], |row| row.get(0))
+            .map_err(|err| DomainError::Storage(err.to_string()))?
+            .collect::<Result<Vec<String>, _>>()
+            .map_err(|err| DomainError::Storage(err.to_string()))?;
+
+        Ok(users)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -258,6 +344,39 @@ mod tests {
 
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].category.as_str(), "food");
+
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn create_and_verify_user() {
+        let path = temp_db_path("user-auth");
+        let mut repo = SqliteRepository::new(&path).expect("repo created");
+
+        let user = repo
+            .create_user("alice", "password123")
+            .expect("user created");
+
+        assert_eq!(user.username, "alice");
+
+        let verified = repo
+            .verify_user("alice", "password123")
+            .expect("verify ok");
+        assert_eq!(verified.as_ref().map(|u| u.username.as_str()), Some("alice"));
+
+        let wrong_pass = repo
+            .verify_user("alice", "wrong")
+            .expect("verify ok (fail)");
+        assert!(wrong_pass.is_none());
+
+        let unknown = repo
+            .verify_user("bob", "whatever")
+            .expect("verify ok (unknown)");
+        assert!(unknown.is_none());
+        
+        // List users
+        let users = repo.list_users().expect("list users");
+        assert!(users.contains(&"alice".to_string()));
 
         let _ = fs::remove_file(path);
     }

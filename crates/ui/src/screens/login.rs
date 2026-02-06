@@ -13,27 +13,27 @@ pub struct LoginScreen {
     user_options: Vec<String>,
     user_selected: usize,
     user_dropdown_open: bool,
+    username_input: String,
     password_input: String,
+    error_message: Option<String>,
 }
 
 impl LoginScreen {
     pub fn new() -> Self {
         Self {
             focus: LoginFocus::User,
-            user_options: vec![
-                "alice".to_string(),
-                "bob".to_string(),
-                "charlie".to_string(),
-            ],
+            user_options: Vec::new(),
             user_selected: 0,
             user_dropdown_open: false,
+            username_input: String::new(),
             password_input: String::new(),
+            error_message: None,
         }
     }
 
     fn focus_next(&mut self) {
         if self.user_dropdown_open {
-            return; // Lock focus when dropdown is open
+            return;
         }
         self.focus = match self.focus {
             LoginFocus::User => LoginFocus::Password,
@@ -45,7 +45,7 @@ impl LoginScreen {
 
     fn focus_prev(&mut self) {
         if self.user_dropdown_open {
-            return; // Lock focus when dropdown is open
+            return;
         }
         self.focus = match self.focus {
             LoginFocus::User => LoginFocus::CreateUserButton,
@@ -55,36 +55,72 @@ impl LoginScreen {
         };
     }
 
-    fn activate(&mut self) -> ScreenResult {
+    fn activate(&mut self, repo: &mut dyn EntryRepository) -> ScreenResult {
         match self.focus {
             LoginFocus::User => {
-                self.user_dropdown_open = !self.user_dropdown_open;
+                // Toggle dropdown
+                if self.user_dropdown_open {
+                    self.user_dropdown_open = false;
+                } else {
+                    // Load users if needed
+                     if let Ok(users) = repo.list_users() {
+                         self.user_options = users;
+                     }
+                    self.user_dropdown_open = true;
+                }
                 ScreenResult::None
             }
-            LoginFocus::CreateUserButton => ScreenResult::Go(ScreenId::CreateUser),
+            LoginFocus::CreateUserButton => {
+                if self.username_input.trim().is_empty() || self.password_input.is_empty() {
+                    self.error_message = Some("Username and password required".to_string());
+                    return ScreenResult::None;
+                }
+                match repo.create_user(&self.username_input, &self.password_input) {
+                    Ok(_) => {
+                         self.error_message = Some("User created! Log in now.".to_string());
+                         // Clear password to force re-entry or just login? Safe to generic message.
+                         self.password_input.clear();
+                    }
+                    Err(e) => {
+                        self.error_message = Some(format!("Error: {}", e));
+                    }
+                }
+                ScreenResult::None
+            }
             LoginFocus::LoginButton => {
-                // TODO: Verify password etc. For now just go to dashboard.
-                ScreenResult::Go(ScreenId::Dashboard)
+                 self.perform_login(repo)
             }
             LoginFocus::Password => {
-                // Allow pressing Enter in password field to submit
-                ScreenResult::Go(ScreenId::Dashboard)
+                self.perform_login(repo)
             }
         }
     }
 
-    fn selected_user_label(&self) -> String {
-        self.user_options
-            .get(self.user_selected)
-            .cloned()
-            .unwrap_or_else(|| "Select user".to_string())
+    fn perform_login(&mut self, repo: &dyn EntryRepository) -> ScreenResult {
+         // Using "GlobalEntryRepo" aliases just dyn EntryRepository for brevity in thought, 
+         // but here we use the trait directly.
+         if self.username_input.trim().is_empty() {
+             self.error_message = Some("Username required".to_string());
+             return ScreenResult::None;
+         }
+         match repo.verify_user(&self.username_input, &self.password_input) {
+             Ok(Some(_user)) => {
+                 ScreenResult::Go(ScreenId::Dashboard)
+             }
+             Ok(None) => {
+                 self.error_message = Some("Invalid credentials".to_string());
+                 ScreenResult::None
+             }
+             Err(e) => {
+                 self.error_message = Some(format!("Error: {}", e));
+                 ScreenResult::None
+             }
+         }
     }
 
     fn dropdown_lines(&self) -> Vec<Line<'_>> {
         let mut lines = Vec::new();
         let max_items = self.user_options.len().min(4);
-        // show a simple scrollable view or just top 4? simpler: just top 4
-        // ideally we would implement a real scroll, but for now we clamp
         for (idx, name) in self.user_options.iter().enumerate().take(max_items) {
             let style = if idx == self.user_selected {
                 Style::default().fg(Color::Black).bg(Color::White)
@@ -108,8 +144,8 @@ impl Screen for LoginScreen {
             0
         };
         // Form structure
-        let form_height = 10; // fixed height for the main form
-        let form_area = centered_rect(area, 50, form_height);
+        let form_height = 12; // increased for error msg
+        let form_area = centered_rect(area, 60, form_height);
 
         let block = Block::default()
             .title(" Login System ")
@@ -127,6 +163,8 @@ impl Screen for LoginScreen {
                 Constraint::Length(1), // Password
                 Constraint::Length(1), // Spacer
                 Constraint::Length(1), // Buttons
+                Constraint::Length(1), // Spacer
+                Constraint::Length(1), // Error
             ])
             .split(inner_area);
 
@@ -163,10 +201,17 @@ impl Screen for LoginScreen {
         } else {
             "▼"
         };
+        // Use username_input
+        let user_display = if self.username_input.is_empty() {
+            "Type or Select..."
+        } else {
+            &self.username_input
+        };
+        
         let user_line = Line::from(vec![
             Span::raw("Username: "),
             Span::styled(
-                format!("{} {}", self.selected_user_label(), user_arrow),
+                format!("{} {}", user_display, user_arrow),
                 user_style,
             ),
         ]);
@@ -181,20 +226,26 @@ impl Screen for LoginScreen {
                 Span::raw("_")
             } else {
                 Span::raw(" ")
-            }, // blinking cursor simulation
+            }, 
         ]);
         frame.render_widget(Paragraph::new(pass_line), chunks[2]);
 
         // 3. Buttons
         let btns = Line::from(vec![
-            Span::styled("[ Login ]", login_btn_style),
-            Span::raw("   "),
-            Span::styled("[ Create User ]", create_btn_style),
+             Span::styled("[ Login ]", login_btn_style),
+             Span::raw("   "),
+             Span::styled("[ Create User ]", create_btn_style),
         ]);
         frame.render_widget(
             Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
             chunks[4],
         );
+        
+        // 4. Error Message
+        if let Some(err) = &self.error_message {
+            let err_line = Line::from(Span::styled(err, Style::default().fg(Color::Red)));
+            frame.render_widget(Paragraph::new(err_line).alignment(ratatui::layout::Alignment::Center), chunks[6]);
+        }
 
         // Dropdown Overlay
         if self.user_dropdown_open {
@@ -216,7 +267,7 @@ impl Screen for LoginScreen {
         }
     }
 
-    fn handle_action(&mut self, action: Action, _repo: &mut dyn EntryRepository) -> ScreenResult {
+    fn handle_action(&mut self, action: Action, repo: &mut dyn EntryRepository) -> ScreenResult {
         match action {
             Action::Quit => ScreenResult::Quit,
             Action::Cancel => {
@@ -245,15 +296,32 @@ impl Screen for LoginScreen {
                 }
                 ScreenResult::None
             }
-            Action::Activate => self.activate(),
+            Action::Activate => {
+                if self.user_dropdown_open {
+                    // Selection confirmed
+                    if let Some(name) = self.user_options.get(self.user_selected) {
+                        self.username_input = name.clone();
+                    }
+                    self.user_dropdown_open = false;
+                    ScreenResult::None
+                } else {
+                    self.activate(repo)
+                }
+            },
             Action::InputChar(ch) => {
-                if self.focus == LoginFocus::Password {
+                self.error_message = None;
+                if self.focus == LoginFocus::User {
+                     self.username_input.push(ch);
+                } else if self.focus == LoginFocus::Password {
                     self.password_input.push(ch);
                 }
                 ScreenResult::None
             }
             Action::Backspace => {
-                if self.focus == LoginFocus::Password {
+                self.error_message = None;
+                if self.focus == LoginFocus::User {
+                     self.username_input.pop();
+                } else if self.focus == LoginFocus::Password {
                     self.password_input.pop();
                 }
                 ScreenResult::None
@@ -262,7 +330,6 @@ impl Screen for LoginScreen {
         }
     }
 }
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum LoginFocus {
     User,

@@ -8,3 +8,5 @@ domain = { path = "../domain" }
 chrono = { workspace = true }
 rusqlite = { workspace = true }
 rusty-money = { workspace = true }
+argon2 = { version = "0.5.3", features = ["std"] }
+rand = { version = "0.8", features = ["std", "std_rng"] }
