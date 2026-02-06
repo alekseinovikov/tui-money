@@ -1,12 +1,9 @@
 use crossterm::event::{Event, KeyCode, KeyEventKind, KeyModifiers};
 
-use crate::screens::ScreenId;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     None,
     Quit,
-    Go(ScreenId),
     FocusNext,
     FocusPrev,
     Activate,

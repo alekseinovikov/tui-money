@@ -45,7 +45,7 @@ pub fn run(repo: Box<dyn EntryRepository>) -> io::Result<()> {
     ctrlc::set_handler(move || {
         should_quit_handle.store(true, Ordering::SeqCst);
     })
-    .map_err(|err| io::Error::other(err))?;
+    .map_err(io::Error::other)?;
 
     loop {
         terminal.draw(|frame| app.render(frame))?;

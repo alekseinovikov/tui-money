@@ -63,8 +63,4 @@ impl App {
             ScreenId::CreateUser => self.create_user.init(repo),
         };
     }
-
-    pub fn should_quit(&self) -> bool {
-        self.should_quit
-    }
 }

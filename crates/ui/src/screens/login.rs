@@ -110,7 +110,7 @@ impl LoginScreen {
 
 impl Screen for LoginScreen {
     fn render(&mut self, frame: &mut ratatui::Frame<'_>) {
-        let area = frame.size();
+        let area = frame.area();
         frame.render_widget(Clear, area);
 
         let dropdown_height = if self.user_dropdown_open {

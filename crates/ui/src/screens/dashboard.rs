@@ -39,7 +39,7 @@ impl Screen for DashboardScreen {
     }
 
     fn render(&mut self, frame: &mut ratatui::Frame<'_>) {
-        let area = frame.size();
+        let area = frame.area();
         let chunks = main_chunks(area);
 
         let header = Block::default().title("TUI Money").borders(Borders::ALL);
